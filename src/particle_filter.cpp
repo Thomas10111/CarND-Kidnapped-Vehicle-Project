@@ -128,6 +128,52 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+    // Standard deviations for x, y, and theta
+  const double sig_x = std_landmark[0];
+  const double sig_y = std_landmark[0];
+  
+  int len = sizeof(std_landmark)/sizeof(std_landmark[0]);
+  for(int i = 0; i < len; ++i)
+  {
+  	std::cout<<"std_landmark " << i << ": " << std_landmark[i] << std::endl; 
+  }
+    //const double std_theta = std_landmark[2];
+  
+  for( const LandmarkObs& o: observations)
+  {
+  
+    // define coordinates and theta
+    for(Particle p: particles)
+    {   
+      double x_part = p.x;
+      double y_part = p.y;
+      double theta  = p.theta; 
+      double x_obs  = o.x;
+      double y_obs  = o.y;
+     // double theta = -M_PI/2; // -90 degrees
+
+      // transform to map x,y coordinate
+      double x_map_obs = x_part + (cos(theta) * x_obs) - (sin(theta) * y_obs);
+      double y_map_obs = y_part + (sin(theta) * x_obs) + (cos(theta) * y_obs);
+
+      //std::cout << int(round(x_map)) << ", " << int(round((y_map)) << std::endl;
+
+      // calculate normalization term
+      double gauss_norm;
+      gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
+
+      // calculate exponent
+      double exponent;
+      exponent = (pow(x_map_obs - x_part, 2) / (2 * pow(sig_x, 2))) + (pow(y_map_obs - y_part, 2) / (2 * pow(sig_y, 2)));
+
+      // calculate weight using normalization terms and exponent
+      double weight;
+      weight = gauss_norm * exp(-exponent);
+
+        //return weight;
+  	}
+      
+  }
 
 }
 

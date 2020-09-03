@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "helper_functions.h"
+#include "map.h"
 
 using std::string;
 using std::vector;
@@ -128,7 +129,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
-    // Standard deviations for x, y, and theta
+    // Standard deviations for x, y
   const double sig_x = std_landmark[0];
   const double sig_y = std_landmark[0];
   
@@ -138,43 +139,48 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   	std::cout<<"std_landmark " << i << ": " << std_landmark[i] << std::endl; 
   }
     //const double std_theta = std_landmark[2];
-  
-  for( const LandmarkObs& o: observations)
+  for(Particle p: particles)
   {
-  
-    // define coordinates and theta
-    for(Particle p: particles)
+    for( const LandmarkObs& o: observations)
     {   
       double x_part = p.x;
       double y_part = p.y;
       double theta  = p.theta; 
       double x_obs  = o.x;
       double y_obs  = o.y;
-     // double theta = -M_PI/2; // -90 degrees
-
-      // transform to map x,y coordinate
-      double x_map_obs = x_part + (cos(theta) * x_obs) - (sin(theta) * y_obs);
-      double y_map_obs = y_part + (sin(theta) * x_obs) + (cos(theta) * y_obs);
-
-      //std::cout << int(round(x_map)) << ", " << int(round((y_map)) << std::endl;
-
-      // calculate normalization term
-      double gauss_norm;
-      gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
-
-      // calculate exponent
-      double exponent;
-      exponent = (pow(x_map_obs - x_part, 2) / (2 * pow(sig_x, 2))) + (pow(y_map_obs - y_part, 2) / (2 * pow(sig_y, 2)));
-
-      // calculate weight using normalization terms and exponent
-      double weight;
-      weight = gauss_norm * exp(-exponent);
-
-        //return weight;
-  	}
+      int matching_landmark_id = o.id;
       
-  }
+      p.weight = 0;
+      //find matching landmark
+      Map::single_landmark_s it;
+      for(const Map::single_landmark_s& m: map_landmarks.landmark_list)
+      {
+        if(m.id_i== matching_landmark_id)
+        {
+          // double theta = -M_PI/2; // -90 degrees
 
+          // transform to map x,y coordinate
+          double x_map_obs = x_part + (cos(theta) * x_obs) - (sin(theta) * y_obs);
+          double y_map_obs = y_part + (sin(theta) * x_obs) + (cos(theta) * y_obs);
+
+          //std::cout << int(round(x_map)) << ", " << int(round((y_map)) << std::endl;
+
+          // calculate normalization term
+          double gauss_norm;
+          gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
+
+          // calculate exponent
+          double exponent;
+          exponent = (pow(x_map_obs - m.x_f, 2) / (2 * pow(sig_x, 2))) + (pow(y_map_obs - m.y_f, 2) / (2 * pow(sig_y, 2)));
+
+          // calculate weight using normalization terms and exponent
+          double weight;
+          weight = gauss_norm * exp(-exponent);
+          p.weight *= weight;
+        }
+      }
+  	}
+  }
 }
 
 void ParticleFilter::resample() {

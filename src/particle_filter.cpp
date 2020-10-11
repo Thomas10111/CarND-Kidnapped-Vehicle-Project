@@ -32,7 +32,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
    	* NOTE: Consult particle_filter.h for more information about this method 
    	*   (and others in this file).
    	*/
-  num_particles = 10;  // TODO: Set the number of particles
+  num_particles = 3;  // TODO: Set the number of particles
   std::default_random_engine gen;
 
   // Standard deviations for x, y, and theta
@@ -50,11 +50,11 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
     particles.push_back( p );
   }
   is_initialized = true;
-//   	for( Particle const p: particles)
-//     {
-//       	std::cout<<p.x<<std::endl;
-//   	}
   
+  for(Particle p: particles)
+  {   
+  	std::cout << "p: " << p.id << "   x: " << p.x << "   y: " << p.y << std::endl;
+  }  
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], 
@@ -74,7 +74,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   const double std_y = std_pos[1];
   const double std_theta = std_pos[2];
   
-  for(Particle p: particles)
+  for(Particle &p: particles)
   {
     double x = p.x;
     double y = p.y;
@@ -94,10 +94,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
     p.theta = dist_theta(gen);    
   }
    	
-//   for( Particle const p: particles)
-//   {
-//     std::cout<<p.x<<std::endl;
-//   }
+  for( Particle const &p: particles)
+  {
+    std::cout<<"p.id: " << p.id << "   p.x: " << p.x << "   p.y: " << p.y << std::endl;
+  }
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
@@ -110,12 +110,27 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
-
+	
+  for( LandmarkObs& o: observations )
+  {
+    float min_dist = 99999999.9;      
+    for( LandmarkObs& p: predicted)
+    {
+      float distance = dist(o.x, o.y, p.x, p.y); 
+      if( distance < min_dist )
+      {
+        min_dist = distance;
+        o.id = p.id;
+        //std::cout << "min_dist: " << min_dist << std::endl;
+      }
+    }
+  }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
                                    const vector<LandmarkObs> &observations, 
-                                   const Map &map_landmarks) {
+                                   const Map &map_landmarks) 
+{
   /**
    * TODO: Update the weights of each particle using a mult-variate Gaussian 
    *   distribution. You can read more about this distribution here: 
@@ -130,56 +145,108 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
     // Standard deviations for x, y
-  const double sig_x = std_landmark[0];
-  const double sig_y = std_landmark[0];
+   const double sig_x = std_landmark[0];
+   const double sig_y = std_landmark[0];
   
-  int len = sizeof(std_landmark)/sizeof(std_landmark[0]);
-  for(int i = 0; i < len; ++i)
+//  const double sig_x = 1//   const double sig_y = 10;
+  
+//  int len = sizeof(std_landmark)/sizeof(std_landmark[0]);
+//   for(int i = 0; i < len; ++i)
+//   {
+//   	std::cout<<"std_landmark " << i << ": " << std_landmark[i] << std::endl; 
+//   }
+  
+  for( const LandmarkObs& o: observations )
   {
-  	std::cout<<"std_landmark " << i << ": " << std_landmark[i] << std::endl; 
+  	std::cout << "observations.x: " << o.x << std::endl;
+    std::cout << "observations.y: " << o.y << std::endl;
   }
-    //const double std_theta = std_landmark[2];
-  for(Particle p: particles)
-  {
-    for( const LandmarkObs& o: observations)
-    {   
-      double x_part = p.x;
-      double y_part = p.y;
-      double theta  = p.theta; 
-      double x_obs  = o.x;
-      double y_obs  = o.y;
-      int matching_landmark_id = o.id;
+  
+//   for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
+//   {
+//     std::cout << "m_lm.id_i: " << m_lm.id_i <<std::endl;  
+//     std::cout << "m_lm.x_f: " << m_lm.x_f <<std::endl;
+//     std::cout << "m_lm.y_f: " << m_lm.y_f <<std::endl;
+//   }
+    
+  // For each particle calculate the observation it makes
+  // Transform landmarks to local measurements
+  for(Particle &p: particles)
+  {	
+    p.associations.clear();
+    p.sense_x.clear();
+    p.sense_y.clear();
+   
+    for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
+    {
+      double local_x = m_lm.x_f - p.x;
+      double local_y = m_lm.y_f - p.y;      
       
-      p.weight = 0;
-      //find matching landmark
-      Map::single_landmark_s it;
-      for(const Map::single_landmark_s& m: map_landmarks.landmark_list)
+      if(local_x < sensor_range && local_y < sensor_range)
       {
-        if(m.id_i== matching_landmark_id)
-        {
-          // double theta = -M_PI/2; // -90 degrees
-
-          // transform to map x,y coordinate
-          double x_map_obs = x_part + (cos(theta) * x_obs) - (sin(theta) * y_obs);
-          double y_map_obs = y_part + (sin(theta) * x_obs) + (cos(theta) * y_obs);
-
-          //std::cout << int(round(x_map)) << ", " << int(round((y_map)) << std::endl;
-
-          // calculate normalization term
-          double gauss_norm;
-          gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
-
-          // calculate exponent
-          double exponent;
-          exponent = (pow(x_map_obs - m.x_f, 2) / (2 * pow(sig_x, 2))) + (pow(y_map_obs - m.y_f, 2) / (2 * pow(sig_y, 2)));
-
-          // calculate weight using normalization terms and exponent
-          double weight;
-          weight = gauss_norm * exp(-exponent);
-          p.weight *= weight;
-        }
+        // map to local
+        double sensed_x = (cos(p.theta) * local_x) + (sin(p.theta) * local_y);
+        double sensed_y = - (sin(p.theta) * local_x) + (cos(p.theta) * local_y);
+      	
+        //std::cout << "sensed_x: " << sensed_x  << "  sensed_y: " << sensed_y << "  m_lm.id_i: " << m_lm.id_i << std::endl;
+      	p.associations.push_back(m_lm.id_i);
+      	p.sense_x.push_back(sensed_x); //distance or position of landmark? 
+      	p.sense_y.push_back(sensed_y);
       }
-  	}
+    }
+  }
+  
+//   for( LandmarkObs& pp: particle_prediction )
+//   {
+//   	std::cout << "particle_prediction.id: " << pp.id << std::endl;
+//     std::cout << "particle_prediction.x: " << pp.x << std::endl;
+//     std::cout << "particle_prediction.y: " << pp.y << std::endl;
+//   }
+  
+
+  // create array of predictions
+  for(Particle& p: particles)
+  {	    
+    vector<LandmarkObs> particle_prediction;
+    //std::cout << "p.associations.size(): " << p.associations.size() << std::endl;
+    for( unsigned int i = 0; i < p.associations.size(); ++i)
+    {
+      LandmarkObs lm{p.associations[i], p.sense_x[i], p.sense_y[i]};
+      particle_prediction.push_back(lm);
+    }
+    
+    vector<LandmarkObs> observation_asso(observations);
+   	dataAssociation(particle_prediction, observation_asso);
+    
+    // calculate normalization term
+    double gauss_norm = 1 / (2 * M_PI * sig_x * sig_y);
+    p.weight = 1;
+    
+    for( const LandmarkObs& o: observation_asso)
+    {
+      // calculate exponent
+      int association_id = -1;
+      for( unsigned int i = 0; i < p.associations.size(); ++i )
+      {
+        if( o.id == p.associations[i] )
+        {
+          association_id = i;
+          break;
+        }        
+      }
+      double exponent;
+      double delta_x = o.x - p.sense_x[association_id];
+      double delta_y = o.y - p.sense_y[association_id];
+      //std::cout << "delta_x: " << delta_x << "  delta_y: " << delta_y << std::endl;
+      exponent = (pow(delta_x, 2) / (2 * pow(sig_x, 2))) + (pow(delta_y, 2) / (2 * pow(sig_y, 2)));
+      
+      // calculate weight using normalization terms and exponent
+      double weight;
+      weight = gauss_norm * exp(-exponent);
+      p.weight *= weight; 
+      //std::cout << p.id << ": exponent: " << exponent << " weight: " << weight << std::endl;
+    }
+     std::cout << p.id << ": weight: " << p.weight << std::endl;
   }
 }
 
@@ -190,7 +257,40 @@ void ParticleFilter::resample() {
    * NOTE: You may find std::discrete_distribution helpful here.
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
-
+  double weight_sum = 0.0;
+  for(Particle& p: particles)
+  {
+  	weight_sum += p.weight;
+  }
+  
+  double max_normalized = 0.0;
+  for(Particle& p: particles)
+  {
+  	p.weight = p.weight/weight_sum;
+    if( p.weight > max_normalized) max_normalized = p.weight; 
+  }
+  
+  
+  double beta = 0.0;
+  int N = particles.size();
+  std::default_random_engine gen;
+  std::uniform_real_distribution<double> dist(0.0, 1.0);
+  std::uniform_int_distribution<int> dist_int(0.0, N-1);
+  std::vector<Particle> particles_old(particles);
+  particles.clear();
+  
+  for( int i =0; i < N; ++i )
+  {
+    int index = dist_int(gen);
+    beta = beta + dist(gen) * 2*max_normalized;
+        
+    while( particles[index].weight < beta )
+    {
+      beta = beta-particles[index].weight;
+      index = (index+1) % N;
+    }
+    particles.push_back(particles_old[index]);		//weight
+  }
 }
 
 void ParticleFilter::SetAssociations(Particle& particle, 

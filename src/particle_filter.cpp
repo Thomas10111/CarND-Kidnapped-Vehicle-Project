@@ -32,7 +32,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
    	* NOTE: Consult particle_filter.h for more information about this method 
    	*   (and others in this file).
    	*/
-  num_particles = 3;  // TODO: Set the number of particles
+  num_particles = 10;  // TODO: Set the number of particles
   std::default_random_engine gen;
 
   // Standard deviations for x, y, and theta
@@ -148,26 +148,10 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    const double sig_x = std_landmark[0];
    const double sig_y = std_landmark[0];
   
-//  const double sig_x = 1//   const double sig_y = 10;
-  
-//  int len = sizeof(std_landmark)/sizeof(std_landmark[0]);
-//   for(int i = 0; i < len; ++i)
-//   {
-//   	std::cout<<"std_landmark " << i << ": " << std_landmark[i] << std::endl; 
-//   }
-  
   for( const LandmarkObs& o: observations )
   {
-  	std::cout << "observations.x: " << o.x << std::endl;
-    std::cout << "observations.y: " << o.y << std::endl;
+  	std::cout << "observations.x: " << o.x << "     observations.y: " << o.y <<std::endl;
   }
-  
-//   for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
-//   {
-//     std::cout << "m_lm.id_i: " << m_lm.id_i <<std::endl;  
-//     std::cout << "m_lm.x_f: " << m_lm.x_f <<std::endl;
-//     std::cout << "m_lm.y_f: " << m_lm.y_f <<std::endl;
-//   }
     
   // For each particle calculate the observation it makes
   // Transform landmarks to local measurements
@@ -186,22 +170,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       {
         // map to local
         double sensed_x = (cos(p.theta) * local_x) + (sin(p.theta) * local_y);
-        double sensed_y = - (sin(p.theta) * local_x) + (cos(p.theta) * local_y);
+        double sensed_y = -(sin(p.theta) * local_x) + (cos(p.theta) * local_y);
       	
-        //std::cout << "sensed_x: " << sensed_x  << "  sensed_y: " << sensed_y << "  m_lm.id_i: " << m_lm.id_i << std::endl;
+        std::cout << "p.id:" << p.id << "  p.theta: " << p.theta <<"   sensed_x: " << sensed_x  << "  sensed_y: " << sensed_y << "  m_lm.id_i: " << m_lm.id_i << std::endl;
       	p.associations.push_back(m_lm.id_i);
       	p.sense_x.push_back(sensed_x); //distance or position of landmark? 
       	p.sense_y.push_back(sensed_y);
       }
     }
   }
-  
-//   for( LandmarkObs& pp: particle_prediction )
-//   {
-//   	std::cout << "particle_prediction.id: " << pp.id << std::endl;
-//     std::cout << "particle_prediction.x: " << pp.x << std::endl;
-//     std::cout << "particle_prediction.y: " << pp.y << std::endl;
-//   }
+  exit(-1);
   
 
   // create array of predictions
@@ -277,6 +255,12 @@ void ParticleFilter::resample() {
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   std::uniform_int_distribution<int> dist_int(0.0, N-1);
   std::vector<Particle> particles_old(particles);
+  
+  for(Particle& p: particles)
+  {
+  	//std::cout <<  "resample  p.id: " << p.id << std::endl;
+  }
+  
   particles.clear();
   
   for( int i =0; i < N; ++i )
@@ -290,6 +274,11 @@ void ParticleFilter::resample() {
       index = (index+1) % N;
     }
     particles.push_back(particles_old[index]);		//weight
+  }
+  
+  for(Particle& p: particles)
+  {
+  	std::cout << "resample  p.id: " << p.id << std::endl;
   }
 }
 

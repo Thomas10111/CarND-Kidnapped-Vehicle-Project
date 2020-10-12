@@ -32,7 +32,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
    	* NOTE: Consult particle_filter.h for more information about this method 
    	*   (and others in this file).
    	*/
-  num_particles = 10;  // TODO: Set the number of particles
+  num_particles = 30;  // TODO: Set the number of particles
   std::default_random_engine gen;
 
   // Standard deviations for x, y, and theta
@@ -191,9 +191,12 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     
     for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
     {
-      p.associations.push_back(m_lm.id_i);
-      p.sense_x.push_back(m_lm.x_f); //distance or position of landmark? 
-      p.sense_y.push_back(m_lm.y_f);
+      if(dist(p.x, p.y, m_lm.x_f, m_lm.y_f) < sensor_range)
+      {
+        p.associations.push_back(m_lm.id_i);
+        p.sense_x.push_back(m_lm.x_f); //distance or position of landmark? 
+        p.sense_y.push_back(m_lm.y_f);
+      }
     }
   }
   

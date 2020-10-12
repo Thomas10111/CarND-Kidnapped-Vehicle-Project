@@ -155,6 +155,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     
   // For each particle calculate the observation it makes
   // Transform landmarks to local measurements
+  /*
   for(Particle &p: particles)
   {	
     p.associations.clear();
@@ -180,17 +181,39 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     }
   }
   exit(-1);
+  */
   
-
+  for(Particle &p: particles)
+  {
+    p.associations.clear();
+    p.sense_x.clear();
+    p.sense_y.clear();
+    
+    for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
+    {
+      p.associations.push_back(m_lm.id_i);
+      p.sense_x.push_back(m_lm.x_f); //distance or position of landmark? 
+      p.sense_y.push_back(m_lm.y_f);
+    }
+  }
+  
   // create array of predictions
   for(Particle& p: particles)
   {	    
     vector<LandmarkObs> particle_prediction;
-    //std::cout << "p.associations.size(): " << p.associations.size() << std::endl;
-    for( unsigned int i = 0; i < p.associations.size(); ++i)
+    for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
     {
-      LandmarkObs lm{p.associations[i], p.sense_x[i], p.sense_y[i]};
-      particle_prediction.push_back(lm);
+      double local_x = m_lm.x_f - p.x;
+      double local_y = m_lm.y_f - p.y;
+      
+      if(local_x < sensor_range && local_y < sensor_range)
+      {
+        // map to local
+        double sensed_x = (cos(p.theta) * local_x) + (sin(p.theta) * local_y);
+        double sensed_y = -(sin(p.theta) * local_x) + (cos(p.theta) * local_y);
+        LandmarkObs lm{m_lm.id_i, sensed_x, sensed_y};
+      	particle_prediction.push_back(lm);
+      }
     }
     
     vector<LandmarkObs> observation_asso(observations);
@@ -204,17 +227,17 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     {
       // calculate exponent
       int association_id = -1;
-      for( unsigned int i = 0; i < p.associations.size(); ++i )
+      for( unsigned int i = 0; i < particle_prediction.size(); ++i )
       {
-        if( o.id == p.associations[i] )
+        if( o.id == particle_prediction[i].id )
         {
           association_id = i;
           break;
         }        
       }
       double exponent;
-      double delta_x = o.x - p.sense_x[association_id];
-      double delta_y = o.y - p.sense_y[association_id];
+      double delta_x = o.x - particle_prediction[association_id].x;
+      double delta_y = o.y - particle_prediction[association_id].y;
       //std::cout << "delta_x: " << delta_x << "  delta_y: " << delta_y << std::endl;
       exponent = (pow(delta_x, 2) / (2 * pow(sig_x, 2))) + (pow(delta_y, 2) / (2 * pow(sig_y, 2)));
       

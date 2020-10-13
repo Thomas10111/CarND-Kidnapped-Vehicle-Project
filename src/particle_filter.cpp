@@ -32,7 +32,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
    	* NOTE: Consult particle_filter.h for more information about this method 
    	*   (and others in this file).
    	*/
-  num_particles = 30;  // TODO: Set the number of particles
+  num_particles = 10;  // TODO: Set the number of particles
   std::default_random_engine gen;
 
   // Standard deviations for x, y, and theta
@@ -80,10 +80,14 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
     double y = p.y;
     double theta = p.theta;// rad
     double theta_dot = yaw_rate;// rad/s
-
-    x = x + velocity/theta_dot * ( sin(theta + yaw_rate*delta_t) - sin(theta) );
-    y = y + velocity/theta_dot * ( cos(theta) - cos(theta + yaw_rate*delta_t) );
-    theta = theta + yaw_rate * delta_t;
+	
+    std::cout<<"p.id: " << p.id << "   theta: " << theta << "   theta_dot: " << theta_dot << "   velocity: " << velocity << std::endl;
+    if(theta_dot != 0)
+    {
+      x = x + velocity/theta_dot * ( sin(theta + theta_dot*delta_t) - sin(theta) );
+      y = y + velocity/theta_dot * ( cos(theta) - cos(theta + theta_dot*delta_t) );
+    }
+    theta = theta + theta_dot * delta_t;
     
     std::normal_distribution<double> dist_x(x, std_x);
   	std::normal_distribution<double> dist_y(y, std_y);
@@ -92,12 +96,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
     p.x = dist_x(gen);
     p.y = dist_y(gen);
     p.theta = dist_theta(gen);    
-  }
-   	
-  for( Particle const &p: particles)
-  {
     std::cout<<"p.id: " << p.id << "   p.x: " << p.x << "   p.y: " << p.y << std::endl;
   }
+  
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
@@ -144,45 +145,12 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
-    // Standard deviations for x, y
-   const double sig_x = std_landmark[0];
-   const double sig_y = std_landmark[0];
   
-  for( const LandmarkObs& o: observations )
-  {
-  	std::cout << "observations.x: " << o.x << "     observations.y: " << o.y <<std::endl;
-  }
-    
-  // For each particle calculate the observation it makes
-  // Transform landmarks to local measurements
-  /*
-  for(Particle &p: particles)
-  {	
-    p.associations.clear();
-    p.sense_x.clear();
-    p.sense_y.clear();
-   
-    for(const Map::single_landmark_s& m_lm: map_landmarks.landmark_list)
-    {
-      double local_x = m_lm.x_f - p.x;
-      double local_y = m_lm.y_f - p.y;      
-      
-      if(local_x < sensor_range && local_y < sensor_range)
-      {
-        // map to local
-        double sensed_x = (cos(p.theta) * local_x) + (sin(p.theta) * local_y);
-        double sensed_y = -(sin(p.theta) * local_x) + (cos(p.theta) * local_y);
-      	
-        std::cout << "p.id:" << p.id << "  p.theta: " << p.theta <<"   sensed_x: " << sensed_x  << "  sensed_y: " << sensed_y << "  m_lm.id_i: " << m_lm.id_i << std::endl;
-      	p.associations.push_back(m_lm.id_i);
-      	p.sense_x.push_back(sensed_x); //distance or position of landmark? 
-      	p.sense_y.push_back(sensed_y);
-      }
-    }
-  }
-  exit(-1);
-  */
+  // Standard deviations for x, y
+  const double sig_x = std_landmark[0];
+  const double sig_y = std_landmark[0];
   
+  //assign landmarks to particle
   for(Particle &p: particles)
   {
     p.associations.clear();
@@ -194,7 +162,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       if(dist(p.x, p.y, m_lm.x_f, m_lm.y_f) < sensor_range)
       {
         p.associations.push_back(m_lm.id_i);
-        p.sense_x.push_back(m_lm.x_f); //distance or position of landmark? 
+        p.sense_x.push_back(m_lm.x_f);
         p.sense_y.push_back(m_lm.y_f);
       }
     }
@@ -241,14 +209,11 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       double exponent;
       double delta_x = o.x - particle_prediction[association_id].x;
       double delta_y = o.y - particle_prediction[association_id].y;
-      //std::cout << "delta_x: " << delta_x << "  delta_y: " << delta_y << std::endl;
+
       exponent = (pow(delta_x, 2) / (2 * pow(sig_x, 2))) + (pow(delta_y, 2) / (2 * pow(sig_y, 2)));
       
       // calculate weight using normalization terms and exponent
-      double weight;
-      weight = gauss_norm * exp(-exponent);
-      p.weight *= weight; 
-      //std::cout << p.id << ": exponent: " << exponent << " weight: " << weight << std::endl;
+      p.weight *= gauss_norm * exp(-exponent);
     }
      std::cout << p.id << ": weight: " << p.weight << std::endl;
   }
@@ -261,19 +226,19 @@ void ParticleFilter::resample() {
    * NOTE: You may find std::discrete_distribution helpful here.
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
-  double weight_sum = 0.0;
-  for(Particle& p: particles)
-  {
-  	weight_sum += p.weight;
-  }
+  
+  auto lambda = []( double a, Particle& b ){ return a + b.weight; };
+  double weight_sum =  std::accumulate(particles.begin(), particles.end(), 0.0, lambda);
   
   double max_normalized = 0.0;
   for(Particle& p: particles)
   {
   	p.weight = p.weight/weight_sum;
-    if( p.weight > max_normalized) max_normalized = p.weight; 
+    if( p.weight > max_normalized)
+    {
+      max_normalized = p.weight; 
+    }
   }
-  
   
   double beta = 0.0;
   int N = particles.size();
@@ -281,11 +246,6 @@ void ParticleFilter::resample() {
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   std::uniform_int_distribution<int> dist_int(0.0, N-1);
   std::vector<Particle> particles_old(particles);
-  
-  for(Particle& p: particles)
-  {
-  	//std::cout <<  "resample  p.id: " << p.id << std::endl;
-  }
   
   particles.clear();
   
@@ -299,7 +259,7 @@ void ParticleFilter::resample() {
       beta = beta-particles[index].weight;
       index = (index+1) % N;
     }
-    particles.push_back(particles_old[index]);		//weight
+    particles.push_back(particles_old[index]);
   }
   
   for(Particle& p: particles)

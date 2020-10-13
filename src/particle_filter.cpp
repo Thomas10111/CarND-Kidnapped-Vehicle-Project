@@ -22,7 +22,7 @@
 using std::string;
 using std::vector;
 
-void ParticleFilter::init(double x, double y, double theta, double std[]) 
+void ParticleFilter::init( double x, double y, double theta, double std[] ) 
 {
   /**
    	* TODO: Set the number of particles. Initialize all particles to 
@@ -50,11 +50,6 @@ void ParticleFilter::init(double x, double y, double theta, double std[])
     particles.push_back( p );
   }
   is_initialized = true;
-  
-  for(Particle p: particles)
-  {   
-  	std::cout << "p: " << p.id << "   x: " << p.x << "   y: " << p.y << std::endl;
-  }  
 }
 
 void ParticleFilter::prediction( double delta_t, double std_pos[], 
@@ -75,7 +70,7 @@ void ParticleFilter::prediction( double delta_t, double std_pos[],
   const double std_y = std_pos[1];
   const double std_theta = std_pos[2];
   
-  for(Particle &p: particles)
+  for( Particle &p: particles )
   {
     double x = p.x;
     double y = p.y;
@@ -83,7 +78,7 @@ void ParticleFilter::prediction( double delta_t, double std_pos[],
     double theta_dot = yaw_rate;// rad/s
 	
     //std::cout<<"p.id: " << p.id << "   theta: " << theta << "   theta_dot: " << theta_dot << "   velocity: " << velocity << std::endl;
-    if(theta_dot != 0)
+    if( theta_dot != 0 )
     {
       x = x + velocity/theta_dot * ( sin(theta + theta_dot*delta_t) - sin(theta) );
       y = y + velocity/theta_dot * ( cos(theta) - cos(theta + theta_dot*delta_t) );
@@ -253,21 +248,24 @@ void ParticleFilter::resample()
   
   for( int i =0; i < N; ++i )
   {
-    int index = dist_int(gen);
-    beta = beta + dist(gen) * 2*max_normalized;
+    int index = dist_int( gen );
+    beta = beta + dist( gen ) * 2 * max_normalized;
         
-    while( particles[index].weight < beta )
+    while( particles_old[index].weight < beta )
     {
-      beta = beta-particles[index].weight;
-      index = (index+1) % N;
+      beta = beta - particles_old[index].weight;
+      index = ( index + 1 ) % N;
     }
-    particles.push_back( particles_old[index] );
+    
+    Particle p( particles_old[index] );
+    p.id = i;
+    particles.push_back( p );
   }
-  
+  /*
   for(Particle& p: particles)
   {
   	std::cout << "resample  p.id: " << p.id << std::endl;
-  }
+  }*/
 }
 
 void ParticleFilter::SetAssociations(Particle& particle, 
